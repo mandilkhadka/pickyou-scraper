@@ -22,9 +22,14 @@ DEFAULT_CONFIG = {
     "output_file": "data/pickyou_products.json",
     "max_retries": 3,  # HTTP request retry attempts
     "timeout": 30,  # HTTP request timeout in seconds
-    "batch_size": 1000,  # For future batch processing features
-    "save_checkpoints": True,  # For future checkpoint/resume features
-    "checkpoint_dir": "data/checkpoints",  # For future checkpoint features
+    "batch_size": 1000,  # Batch size for processing products (memory optimization)
+    "save_checkpoints": True,  # Enable progress checkpoint saving
+    "checkpoint_dir": "data/checkpoints",  # Directory for checkpoint files
+    "checkpoint_interval": 1000,  # Save checkpoint every N products
+    "circuit_breaker_enabled": True,  # Enable circuit breaker pattern
+    "circuit_breaker_failure_threshold": 10,  # Failures before opening circuit
+    "circuit_breaker_timeout": 60,  # Seconds before attempting to close circuit
+    "stream_to_disk": True,  # Stream products to disk instead of keeping in memory
     "include_metadata": True,  # Include metadata in output
     "log_level": "INFO"  # Logging level
 }
@@ -33,19 +38,22 @@ DEFAULT_CONFIG = {
 class Config:
     """
     Configuration manager for scraper settings.
+    スクレイパー設定の設定マネージャー
     
     Provides a dictionary-like interface for accessing configuration values
     with support for defaults, file loading, and runtime overrides.
+    デフォルト、ファイル読み込み、実行時オーバーライドをサポートする
+    辞書のようなインターフェースで設定値にアクセスできます。
     
     Example:
-        >>> # Use defaults
+        >>> # Use defaults / デフォルトを使用
         >>> config = Config()
         >>> print(config['base_url'])  # "https://pickyou.co.jp"
         
-        >>> # Load from file
+        >>> # Load from file / ファイルから読み込み
         >>> config = Config(config_file="config.json")
         
-        >>> # Override values
+        >>> # Override values / 値をオーバーライド
         >>> config = Config(delay=2.0, limit=100)
         >>> print(config['delay'])  # 2.0
     """

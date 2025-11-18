@@ -1,8 +1,12 @@
 """
 Command-line interface for the scraper.
+スクレイパーのコマンドラインインターフェース
 
 This module provides a user-friendly CLI for running the scraper from the terminal.
 Supports all configuration options via command-line arguments and config files.
+このモジュールは、ターミナルからスクレイパーを実行するための
+ユーザーフレンドリーなCLIを提供します。
+コマンドライン引数と設定ファイルを介してすべての設定オプションをサポートします。
 """
 
 import argparse
@@ -140,21 +144,39 @@ def main():
     if args.delay:
         config['delay'] = args.delay
     
-    # Create and run scraper
+    # Create and run scraper with production-ready features
     scraper = Scraper(
         base_url=config['base_url'],
         limit=config['limit'],
         delay=config['delay'],
-        logger=logger
+        logger=logger,
+        batch_size=config.get('batch_size', 1000),
+        save_checkpoints=config.get('save_checkpoints', True),
+        checkpoint_dir=config.get('checkpoint_dir', 'data/checkpoints'),
+        checkpoint_interval=config.get('checkpoint_interval', 1000),
+        circuit_breaker_enabled=config.get('circuit_breaker_enabled', True),
+        circuit_breaker_failure_threshold=config.get('circuit_breaker_failure_threshold', 10),
+        circuit_breaker_timeout=config.get('circuit_breaker_timeout', 60),
+        stream_to_disk=config.get('stream_to_disk', True)
     )
     
-    success = scraper.scrape_and_save(config['output_file'])
-    
-    if not success:
-        logger.error("Scraping failed!")
-        sys.exit(1)
-    
-    sys.exit(0)
+    try:
+        success = scraper.scrape_and_save(config['output_file'])
+        
+        if not success:
+            if scraper.shutdown_requested:
+                logger.warning("Scraping interrupted. Progress saved.")
+                sys.exit(130)  # Standard exit code for SIGINT/Ctrl+C
+            else:
+                logger.error("Scraping failed!")
+                sys.exit(1)
+        
+        sys.exit(0)
+    except KeyboardInterrupt:
+        logger.warning("\nScraping interrupted by user")
+        if scraper.save_checkpoints:
+            logger.info("Checkpoint saved. You can resume later.")
+        sys.exit(130)  # Standard exit code for SIGINT/Ctrl+C
 
 
 if __name__ == "__main__":

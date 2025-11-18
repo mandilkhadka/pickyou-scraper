@@ -1,24 +1,29 @@
 """
 Data validation for transformed products.
+変換された商品のデータ検証
 
 This module validates that transformed products conform to the expected schema
 before they are saved to the output file. This ensures data quality and
 prevents downstream pipeline errors.
+このモジュールは、変換された商品が期待されるスキーマに準拠していることを
+出力ファイルに保存する前に検証します。これによりデータ品質が確保され、
+下流のパイプラインエラーを防ぎます。
 """
 
 from typing import Any, Dict
 
 
-# Constants for validation
+# Constants for validation / 検証用の定数
+# Required fields in transformed product / 変換された商品の必須フィールド
 REQUIRED_FIELDS = [
     "platform", "id", "name", "price", "sizes", "brand",
     "category", "gender", "s3_image_url", "platform_url",
     "image_count", "item_images"
 ]
 
-VALID_GENDERS = ["womens", "mens", "unisex"]  # Valid gender values
-REQUIRED_SIZE_FIELDS = ["id", "row", "size"]  # Required fields in size objects
-REQUIRED_BRAND_FIELDS = ["id", "name", "sub_name"]  # Required fields in brand object
+VALID_GENDERS = ["womens", "mens", "unisex"]  # Valid gender values / 有効な性別値
+REQUIRED_SIZE_FIELDS = ["id", "row", "size"]  # Required fields in size objects / サイズオブジェクトの必須フィールド
+REQUIRED_BRAND_FIELDS = ["id", "name", "sub_name"]  # Required fields in brand object / ブランドオブジェクトの必須フィールド
 
 
 def validate_product(product: Dict[str, Any]) -> bool:

@@ -1,9 +1,12 @@
 """
 Logging configuration for the scraper.
+スクレイパーのログ設定
 
 This module provides a centralized logging setup that can be used throughout
 the application. It supports both console and file logging with configurable
 log levels.
+このモジュールは、アプリケーション全体で使用できる集中型ログ設定を提供します。
+設定可能なログレベルでコンソールとファイルの両方のログをサポートします。
 """
 
 import logging
@@ -12,10 +15,10 @@ import getpass
 from typing import Optional
 
 
-# Default logger user
+# Default logger user / デフォルトのロガーユーザー
 DEFAULT_LOGGER_NAME = "pickyou_scraper"
 
-# Default log format
+# Default log format / デフォルトのログ形式
 LOG_FORMAT = '%(asctime)s - %(user)s - %(levelname)s - %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 

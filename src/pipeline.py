@@ -1,13 +1,21 @@
 """
 Pipeline integration module for easy programmatic use.
+簡単なプログラム使用のためのパイプライン統合モジュール
 
 This module provides a clean, production-ready API for integrating the scraper
 into extraction pipelines. It includes:
+このモジュールは、スクレイパーを抽出パイプラインに統合するための
+クリーンで本番環境対応のAPIを提供します。以下を含みます：
 - Callback support for progress tracking
+  - 進捗追跡のためのコールバックサポート
 - Metadata inclusion in output
+  - 出力へのメタデータの含め
 - Batch processing support
+  - バッチ処理サポート
 - Easy error handling
+  - 簡単なエラーハンドリング
 - Status monitoring
+  - ステータス監視
 """
 
 from typing import Dict, Any, Optional, List, Callable
