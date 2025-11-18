@@ -53,8 +53,3 @@ logs/
 .env
 .env.local
 
-# Plan files
-*.plan
-*.plan.md
-.cursor/plans/
-
