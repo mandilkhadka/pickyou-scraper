@@ -49,7 +49,7 @@ def make_request(
         response = session.get(url, headers=headers, timeout=timeout)
         response.raise_for_status()
         return response.json()
-    except requests.exceptions.RequestException as e:
+    except (requests.exceptions.RequestException, Exception) as e:
         print(f"Error fetching {url}: {e}")
         return None
     except json.JSONDecodeError as e:
@@ -80,8 +80,10 @@ def save_json(data: Dict[str, Any], filepath: str, indent: int = 2) -> bool:
         True if successful, False otherwise
     """
     try:
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        # Ensure directory exists (only if filepath has a directory component)
+        dir_path = os.path.dirname(filepath)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok=True)
         
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=indent, ensure_ascii=False)

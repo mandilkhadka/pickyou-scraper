@@ -100,8 +100,15 @@ def parse_shopify_product(shopify_product: Dict[str, Any], base_url: str = "http
     product_id = str(shopify_product.get("id", ""))
     handle = shopify_product.get("handle", "")
     title = shopify_product.get("title", "")
-    tags = shopify_product.get("tags", "").split(",") if shopify_product.get("tags") else []
-    tags = [tag.strip() for tag in tags if tag.strip()]
+    
+    # Handle tags - can be string or list
+    tags_raw = shopify_product.get("tags", "")
+    if isinstance(tags_raw, list):
+        tags = [str(tag).strip() for tag in tags_raw if tag]
+    elif isinstance(tags_raw, str):
+        tags = [tag.strip() for tag in tags_raw.split(",") if tag.strip()]
+    else:
+        tags = []
     product_type = shopify_product.get("product_type")
     variants = shopify_product.get("variants", [])
     images = shopify_product.get("images", [])

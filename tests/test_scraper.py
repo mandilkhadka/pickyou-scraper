@@ -101,9 +101,11 @@ class TestScraper:
     @patch('time.sleep')
     def test_fetch_all_products_pagination(self, mock_sleep, mock_request):
         """Test pagination through multiple pages"""
-        # First page returns 2 products, second page returns 1, third returns empty
+        # First page returns limit (250) products, second page returns 1, third returns empty
+        # Create a list of 250 products for page 1
+        page1_products = [SAMPLE_SHOPIFY_PRODUCT] * 250
         mock_request.side_effect = [
-            {"products": [SAMPLE_SHOPIFY_PRODUCT, SAMPLE_SHOPIFY_PRODUCT]},
+            {"products": page1_products},
             {"products": [SAMPLE_SHOPIFY_PRODUCT]},
             {"products": []}
         ]
@@ -111,8 +113,8 @@ class TestScraper:
         scraper = Scraper(delay=0)  # No delay for testing
         products = scraper.fetch_all_products()
         
-        assert len(products) == 3
-        assert mock_request.call_count == 3
+        assert len(products) == 251  # 250 from page 1, 1 from page 2
+        assert mock_request.call_count == 2  # Stops after page 2 (got < limit)
     
     @patch('src.scraper.make_request')
     @patch('time.sleep')
