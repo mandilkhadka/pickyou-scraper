@@ -1,15 +1,25 @@
-"""Command-line interface for the scraper"""
+"""
+Command-line interface for the scraper.
+
+This module provides a user-friendly CLI for running the scraper from the terminal.
+Supports all configuration options via command-line arguments and config files.
+"""
 
 import argparse
 import sys
-from pathlib import Path
+import logging
 from .scraper import Scraper
 from .logger import setup_logger
 from .config import Config
 
 
 def create_parser() -> argparse.ArgumentParser:
-    """Create command-line argument parser."""
+    """
+    Create and configure command-line argument parser.
+    
+    Returns:
+        Configured ArgumentParser with all scraper options.
+    """
     parser = argparse.ArgumentParser(
         description="Shopify API scraper for pickyou.co.jp",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -88,20 +98,24 @@ Examples:
 
 
 def main():
-    """Main CLI entry point."""
+    """
+    Main CLI entry point.
+    
+    Parses command-line arguments, sets up logging, loads configuration,
+    and runs the scraper. Exits with appropriate status codes.
+    """
     parser = create_parser()
     args = parser.parse_args()
     
-    # Determine log level
+    # Determine log level based on verbosity flags
     if args.verbose:
-        log_level = 'DEBUG'
+        log_level = 'DEBUG'  # Most verbose
     elif args.quiet:
-        log_level = 'WARNING'
+        log_level = 'WARNING'  # Only warnings and errors
     else:
-        log_level = 'INFO'
+        log_level = 'INFO'  # Default: info, warnings, and errors
     
-    # Setup logger
-    import logging
+    # Map string log levels to logging constants
     level_map = {
         'DEBUG': logging.DEBUG,
         'INFO': logging.INFO,

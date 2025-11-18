@@ -1,80 +1,130 @@
-"""Data validation for transformed products"""
+"""
+Data validation for transformed products.
+
+This module validates that transformed products conform to the expected schema
+before they are saved to the output file. This ensures data quality and
+prevents downstream pipeline errors.
+"""
 
 from typing import Any, Dict
 
 
+# Constants for validation
+REQUIRED_FIELDS = [
+    "platform", "id", "name", "price", "sizes", "brand",
+    "category", "gender", "s3_image_url", "platform_url",
+    "image_count", "item_images"
+]
+
+VALID_GENDERS = ["womens", "mens", "unisex"]  # Valid gender values
+REQUIRED_SIZE_FIELDS = ["id", "row", "size"]  # Required fields in size objects
+REQUIRED_BRAND_FIELDS = ["id", "name", "sub_name"]  # Required fields in brand object
+
+
 def validate_product(product: Dict[str, Any]) -> bool:
     """
-    Validate that a transformed product has all required fields.
+    Validate that a transformed product has all required fields and correct types.
+    
+    This function performs comprehensive validation to ensure:
+    - All required fields are present
+    - Field types are correct
+    - Field values are valid (e.g., gender is one of the allowed values)
+    - Nested structures (sizes, brand) are properly formatted
     
     Args:
-        product: Transformed product dictionary
+        product: Transformed product dictionary to validate
         
     Returns:
-        True if product is valid, False otherwise
+        True if product is valid and ready for saving, False otherwise.
+        
+    Example:
+        >>> product = {
+        ...     "platform": "pickyou",
+        ...     "id": "123",
+        ...     "name": "Test Product",
+        ...     "price": 1000,
+        ...     "sizes": [{"id": "S", "row": "S", "size": "S"}],
+        ...     "brand": {"id": None, "name": "Brand", "sub_name": None},
+        ...     "category": "tops",
+        ...     "gender": "womens",
+        ...     "s3_image_url": "https://example.com/image.jpg",
+        ...     "platform_url": "https://pickyou.co.jp/products/test",
+        ...     "image_count": 1,
+        ...     "item_images": ["https://example.com/image.jpg"]
+        ... }
+        >>> is_valid = validate_product(product)
+        >>> print(is_valid)  # True
     """
-    # Required fields
-    required_fields = ["platform", "id", "name", "price", "sizes", "brand", 
-                      "category", "gender", "s3_image_url", "platform_url", 
-                      "image_count", "item_images"]
-    
-    # Check all required fields exist
-    for field in required_fields:
+    # Step 1: Check all required fields exist
+    for field in REQUIRED_FIELDS:
         if field not in product:
             return False
     
-    # Validate platform
+    # Step 2: Validate platform field
+    # Must be a non-empty string
     if not isinstance(product["platform"], str) or not product["platform"]:
         return False
     
-    # Validate id
+    # Step 3: Validate product ID
+    # Must be present and truthy (not empty string, None, etc.)
     if not product["id"]:
         return False
     
-    # Validate name
+    # Step 4: Validate product name
+    # Must be a non-empty string
     if not isinstance(product["name"], str) or not product["name"]:
         return False
     
-    # Validate price (must be integer)
+    # Step 5: Validate price
+    # Must be an integer (we convert floats to ints during parsing)
     if not isinstance(product["price"], int):
         return False
     
-    # Validate sizes (must be list with at least one item)
+    # Step 6: Validate sizes array
+    # Must be a list with at least one item (required by schema)
     if not isinstance(product["sizes"], list) or len(product["sizes"]) == 0:
         return False
     
-    # Validate each size object
+    # Step 7: Validate each size object structure
     for size in product["sizes"]:
+        # Each size must be a dictionary
         if not isinstance(size, dict):
             return False
-        if "id" not in size or "row" not in size or "size" not in size:
+        # Each size must have required fields
+        if not all(field in size for field in REQUIRED_SIZE_FIELDS):
             return False
     
-    # Validate brand (must be dict with id, name, sub_name)
+    # Step 8: Validate brand object structure
     if not isinstance(product["brand"], dict):
         return False
-    if "id" not in product["brand"] or "name" not in product["brand"] or "sub_name" not in product["brand"]:
+    # Brand must have all required fields (values can be None)
+    if not all(field in product["brand"] for field in REQUIRED_BRAND_FIELDS):
         return False
     
-    # Validate category
+    # Step 9: Validate category
+    # Must be a string (can be empty, but should be a string)
     if not isinstance(product["category"], str):
         return False
     
-    # Validate gender
-    if product["gender"] not in ["womens", "mens", "unisex"]:
+    # Step 10: Validate gender
+    # Must be one of the allowed values
+    if product["gender"] not in VALID_GENDERS:
         return False
     
-    # Validate image_count (must be integer)
+    # Step 11: Validate image_count
+    # Must be a non-negative integer
     if not isinstance(product["image_count"], int) or product["image_count"] < 0:
         return False
     
-    # Validate item_images (must be list)
+    # Step 12: Validate item_images
+    # Must be a list (can be empty if no images)
     if not isinstance(product["item_images"], list):
         return False
     
-    # Validate platform_url
+    # Step 13: Validate platform_url
+    # Must be a string (can be empty if handle is missing)
     if not isinstance(product["platform_url"], str):
         return False
     
+    # All validations passed
     return True
-

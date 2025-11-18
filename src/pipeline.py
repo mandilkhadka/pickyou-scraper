@@ -1,7 +1,13 @@
 """
 Pipeline integration module for easy programmatic use.
 
-This module provides a clean API for integrating the scraper into extraction pipelines.
+This module provides a clean, production-ready API for integrating the scraper
+into extraction pipelines. It includes:
+- Callback support for progress tracking
+- Metadata inclusion in output
+- Batch processing support
+- Easy error handling
+- Status monitoring
 """
 
 from typing import Dict, Any, Optional, List, Callable
@@ -10,6 +16,11 @@ import json
 from .scraper import Scraper
 from .logger import setup_logger
 from .config import Config
+
+
+# Constants
+DEFAULT_SCRAPER_VERSION = "1.0.0"  # Scraper version for metadata
+DEFAULT_PLATFORM = "pickyou"  # Platform identifier
 
 
 class PipelineScraper:
@@ -21,6 +32,18 @@ class PipelineScraper:
     - Metadata inclusion in output
     - Batch processing support
     - Easy error handling
+    - Status monitoring
+    
+    Example:
+        >>> from src.pipeline import PipelineScraper
+        >>> from src.config import Config
+        >>> 
+        >>> config = Config(delay=2.0)
+        >>> pipeline = PipelineScraper(config=config)
+        >>> result = pipeline.scrape_with_metadata()
+        >>> 
+        >>> if result['success']:
+        ...     print(f"Scraped {result['metadata']['statistics']['products_transformed']} products")
     """
     
     def __init__(
@@ -31,19 +54,22 @@ class PipelineScraper:
         on_batch: Optional[Callable[[List[Dict[str, Any]]], None]] = None
     ):
         """
-        Initialize pipeline scraper.
+        Initialize pipeline scraper with configuration and callbacks.
         
         Args:
-            config: Configuration object (optional)
-            logger: Logger instance (optional)
-            on_progress: Callback function called with progress updates
-            on_batch: Callback function called with each batch of products
+            config: Configuration object (uses defaults if None)
+            logger: Logger instance (creates default if None)
+            on_progress: Optional callback function called with progress updates
+                        Receives dictionary with statistics
+            on_batch: Optional callback function called with each batch of products
+                     Receives list of transformed products
         """
         self.config = config or Config()
         self.logger = logger or setup_logger()
         self.on_progress = on_progress
         self.on_batch = on_batch
         
+        # Initialize the underlying scraper with configuration
         self.scraper = Scraper(
             base_url=self.config['base_url'],
             limit=self.config['limit'],
@@ -60,24 +86,43 @@ class PipelineScraper:
         """
         Scrape products and return results with metadata.
         
+        This is the main scraping method that returns a comprehensive result
+        dictionary with success status, timing information, and statistics.
+        
         Args:
             output_file: Output file path (uses config default if None)
-            include_metadata: Include scraping metadata in output
-            return_data: Return data in addition to saving to file
-            
+            include_metadata: Whether to include metadata (currently always True)
+            return_data: If True, includes the full data in the result dictionary
+                        (useful for in-memory processing without re-reading file)
+        
         Returns:
-            Dictionary with scraping results and metadata
+            Dictionary with structure:
+            {
+                "success": bool,
+                "timestamp": str (ISO format),
+                "duration_seconds": float,
+                "output_file": str,
+                "statistics": dict,
+                "data": dict (only if return_data=True)
+            }
+            
+        Example:
+            >>> pipeline = PipelineScraper()
+            >>> result = pipeline.scrape(return_data=True)
+            >>> if result['success']:
+            ...     products = result['data']['items']
+            ...     print(f"Scraped {len(products)} products in {result['duration_seconds']:.2f}s")
         """
         output_file = output_file or self.config['output_file']
         start_time = datetime.now()
         
-        # Run scraper
+        # Run the scraper
         success = self.scraper.scrape_and_save(output_file)
         
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
         
-        # Prepare result
+        # Prepare result dictionary
         result = {
             "success": success,
             "timestamp": end_time.isoformat(),
@@ -86,7 +131,7 @@ class PipelineScraper:
             "statistics": self.scraper.stats.copy()
         }
         
-        # Load data if requested
+        # Optionally load and include data in result
         if return_data:
             try:
                 with open(output_file, 'r', encoding='utf-8') as f:
@@ -105,16 +150,32 @@ class PipelineScraper:
         """
         Scrape products and save with metadata included in output file.
         
+        This method saves the scraped data with metadata embedded in the JSON file.
+        The metadata includes timestamp, duration, statistics, and version information.
+        This is useful for tracking when data was scraped and how the scraping performed.
+        
         Args:
             output_file: Output file path (uses config default if None)
             
         Returns:
-            Dictionary with scraping results
+            Dictionary with structure:
+            {
+                "success": bool,
+                "output_file": str,
+                "metadata": dict (if successful)
+                "error": str (if failed)
+            }
+            
+        Example:
+            >>> pipeline = PipelineScraper()
+            >>> result = pipeline.scrape_with_metadata("data/products.json")
+            >>> if result['success']:
+            ...     print(f"Metadata: {result['metadata']}")
         """
         output_file = output_file or self.config['output_file']
         start_time = datetime.now()
         
-        # Run scraper
+        # Run the scraper
         success = self.scraper.scrape_and_save(output_file)
         
         if not success:
@@ -123,7 +184,7 @@ class PipelineScraper:
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
         
-        # Load existing data
+        # Load the scraped data
         try:
             with open(output_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -131,22 +192,22 @@ class PipelineScraper:
             self.logger.error(f"Error loading output file: {e}")
             return {"success": False, "error": str(e)}
         
-        # Add metadata
+        # Prepare metadata to embed in the file
         metadata = {
             "scraping_metadata": {
                 "timestamp": end_time.isoformat(),
                 "duration_seconds": duration,
-                "scraper_version": "1.0.0",
-                "platform": "pickyou",
+                "scraper_version": DEFAULT_SCRAPER_VERSION,
+                "platform": DEFAULT_PLATFORM,
                 "base_url": self.config['base_url'],
                 "statistics": self.scraper.stats.copy()
             }
         }
         
-        # Merge metadata with data
+        # Merge metadata with data (metadata first so it appears at top of JSON)
         output_data = {**metadata, **data}
         
-        # Save with metadata
+        # Save file with embedded metadata
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump(output_data, f, indent=2, ensure_ascii=False)
@@ -163,10 +224,23 @@ class PipelineScraper:
     
     def get_status(self) -> Dict[str, Any]:
         """
-        Get current scraper status.
+        Get current scraper status and configuration.
+        
+        Useful for monitoring and health checks in production pipelines.
         
         Returns:
-            Dictionary with scraper status information
+            Dictionary with structure:
+            {
+                "config": dict,
+                "statistics": dict,
+                "ready": bool
+            }
+            
+        Example:
+            >>> pipeline = PipelineScraper()
+            >>> status = pipeline.get_status()
+            >>> print(f"Ready: {status['ready']}")
+            >>> print(f"Config: {status['config']}")
         """
         return {
             "config": self.config.to_dict(),
@@ -175,7 +249,6 @@ class PipelineScraper:
         }
 
 
-# Convenience function for quick integration
 def scrape_products(
     output_file: str = "data/pickyou_products.json",
     base_url: str = "https://pickyou.co.jp",
@@ -184,19 +257,34 @@ def scrape_products(
     """
     Quick function to scrape products (for simple integrations).
     
+    This is a convenience function for simple use cases where you don't need
+    the full PipelineScraper class. It creates a scraper, runs it, and
+    returns the result.
+    
     Args:
         output_file: Output file path
         base_url: Base URL of Shopify store
         **kwargs: Additional scraper configuration options
+                 (e.g., delay=2.0, limit=100)
         
     Returns:
-        Dictionary with scraping results
+        Dictionary with scraping results (same format as PipelineScraper.scrape())
+        
+    Example:
+        >>> from src.pipeline import scrape_products
+        >>> result = scrape_products(
+        ...     output_file="data/products.json",
+        ...     delay=2.0
+        ... )
+        >>> if result['success']:
+        ...     print(f"Success! Scraped {result['statistics']['products_transformed']} products")
     """
+    # Create configuration with provided values
     config = Config()
     config['output_file'] = output_file
     config['base_url'] = base_url
     config.update(kwargs)
     
+    # Create and run pipeline scraper
     pipeline_scraper = PipelineScraper(config=config)
     return pipeline_scraper.scrape(return_data=False)
-
