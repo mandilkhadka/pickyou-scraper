@@ -58,6 +58,7 @@ class Scraper:
         self.limit = min(limit, SHOPIFY_MAX_LIMIT)  # Enforce Shopify's maximum
         self.delay = delay
         self.api_endpoint = f"{base_url}/products.json"
+        self.collections_endpoint = f"{base_url}/collections.json"
         self.logger = logger or setup_logger()
         
         # Initialize statistics tracking
@@ -66,6 +67,7 @@ class Scraper:
             "products_fetched": 0,
             "products_transformed": 0,
             "products_failed": 0,
+            "collections_fetched": 0,
             "errors": []
         }
     
@@ -105,62 +107,237 @@ class Scraper:
         # Return empty list if no products or request failed
         return []
     
-    def fetch_all_products(self) -> List[Dict[str, Any]]:
+    def fetch_all_collections(self) -> List[Dict[str, Any]]:
         """
-        Fetch all products by automatically paginating through all pages.
-        
-        The method continues fetching pages until:
-        - An empty response is received
-        - Fewer products than the limit are returned (indicating last page)
+        Fetch all collections from the Shopify API.
         
         Returns:
-            List of all Shopify product objects from all pages.
+            List of all collection objects from the API.
+            
+        Example:
+            >>> scraper = Scraper()
+            >>> collections = scraper.fetch_all_collections()
+            >>> print(f"Found {len(collections)} collections")
+        """
+        all_collections = []
+        page = 1
+        start_time = time.time()
+        
+        self.logger.info("Fetching all collections...")
+        
+        # Paginate through all collection pages
+        while True:
+            url = f"{self.collections_endpoint}?limit={self.limit}&page={page}"
+            self.logger.info(f"Fetching collections page {page}...")
+            
+            response = make_request(url, logger=self.logger)
+            
+            if response and "collections" in response:
+                collections = response["collections"]
+                if not collections:
+                    break
+                
+                all_collections.extend(collections)
+                self.logger.info(f"  Found {len(collections)} collections on page {page}")
+                
+                # If we got fewer collections than the limit, we've reached the last page
+                if len(collections) < self.limit:
+                    break
+                
+                page += 1
+                
+                # Rate limiting
+                if self.delay > 0:
+                    time.sleep(self.delay)
+            else:
+                break
+        
+        elapsed_time = time.time() - start_time
+        self.logger.info(
+            f"Collections fetch completed: {len(all_collections)} collections in "
+            f"{elapsed_time:.2f} seconds"
+        )
+        
+        self.stats["collections_fetched"] = len(all_collections)
+        return all_collections
+    
+    def fetch_products_from_collection(
+        self, 
+        collection_id: str, 
+        collection_handle: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch all products from a specific collection with pagination.
+        
+        Args:
+            collection_id: Collection ID (can be numeric ID or handle)
+            collection_handle: Optional collection handle for URL construction
+            
+        Returns:
+            List of all products from the collection.
+            
+        Example:
+            >>> scraper = Scraper()
+            >>> products = scraper.fetch_products_from_collection("123456")
+            >>> print(f"Found {len(products)} products in collection")
+        """
+        all_products = []
+        page = 1
+        
+        # Use handle if available (more reliable), otherwise use ID
+        if collection_handle:
+            collection_path = collection_handle
+        else:
+            collection_path = collection_id
+        
+        collection_url = f"{self.base_url}/collections/{collection_path}/products.json"
+        
+        # Paginate through all product pages in this collection
+        while True:
+            url = f"{collection_url}?limit={self.limit}&page={page}"
+            
+            response = make_request(url, logger=self.logger)
+            
+            if response and "products" in response:
+                products = response["products"]
+                if not products:
+                    break
+                
+                all_products.extend(products)
+                self.stats["pages_fetched"] += 1
+                self.stats["products_fetched"] += len(products)
+                
+                # If we got fewer products than the limit, we've reached the last page
+                if len(products) < self.limit:
+                    break
+                
+                page += 1
+                
+                # Rate limiting
+                if self.delay > 0:
+                    time.sleep(self.delay)
+            else:
+                break
+        
+        return all_products
+    
+    def fetch_all_products(self) -> List[Dict[str, Any]]:
+        """
+        Fetch all products from all sources: main products endpoint and all collections.
+        
+        This comprehensive method:
+        1. Fetches products from the main /products.json endpoint
+        2. Fetches all collections
+        3. Fetches products from each collection
+        4. Deduplicates products by ID to ensure no duplicates
+        
+        Returns:
+            List of all unique Shopify product objects from all sources.
             
         Example:
             >>> scraper = Scraper()
             >>> all_products = scraper.fetch_all_products()
-            >>> print(f"Total products: {len(all_products)}")
+            >>> print(f"Total unique products: {len(all_products)}")
         """
-        all_products = []
-        page = 1
         start_time = time.time()
+        all_products_dict = {}  # Use dict to deduplicate by product ID
         
-        self.logger.info("Starting product fetch...")
+        self.logger.info("=" * 60)
+        self.logger.info("Starting comprehensive product fetch from all sources...")
+        self.logger.info("=" * 60)
         
-        # Paginate through all pages
+        # Step 1: Fetch from main products endpoint
+        self.logger.info("\n[Step 1/3] Fetching products from main endpoint...")
+        main_products = []
+        page = 1
+        
         while True:
             products = self.fetch_page(page)
             
-            # Stop if no products returned (end of catalog or error)
             if not products:
                 self.logger.info(f"No more products found. Stopping at page {page}")
                 break
             
-            # Add products from this page to our collection
-            all_products.extend(products)
+            main_products.extend(products)
             
-            # If we got fewer products than the limit, we've reached the last page
-            # This is more efficient than making an extra request to check
             if len(products) < self.limit:
                 self.logger.info(
                     f"Reached last page (got {len(products)} products, limit is {self.limit})"
                 )
                 break
             
-            # Move to next page
             page += 1
             
-            # Rate limiting: delay between requests to be respectful to the API
             if self.delay > 0:
                 time.sleep(self.delay)
         
-        # Log performance metrics
+        self.logger.info(f"Main endpoint: Found {len(main_products)} products")
+        
+        # Step 2: Fetch all collections
+        self.logger.info("\n[Step 2/3] Fetching all collections...")
+        collections = self.fetch_all_collections()
+        self.logger.info(f"Found {len(collections)} collections")
+        
+        # Step 3: Fetch products from each collection
+        self.logger.info("\n[Step 3/3] Fetching products from collections...")
+        all_collection_products = []  # Store all collection products
+        
+        for idx, collection in enumerate(collections, 1):
+            collection_id = collection.get("id", "")
+            collection_handle = collection.get("handle", "")
+            collection_title = collection.get("title", collection_handle or str(collection_id))
+            
+            self.logger.info(
+                f"Collection {idx}/{len(collections)}: {collection_title} "
+                f"(ID: {collection_id}, Handle: {collection_handle})"
+            )
+            
+            products = self.fetch_products_from_collection(
+                str(collection_id), 
+                collection_handle
+            )
+            
+            all_collection_products.extend(products)
+            self.logger.info(f"  Found {len(products)} products in this collection")
+            
+            if self.delay > 0:
+                time.sleep(self.delay)
+        
+        self.logger.info(f"Collections: Found {len(all_collection_products)} products total")
+        
+        # Step 4: Combine and deduplicate all products by ID
+        self.logger.info("\n[Deduplication] Combining and deduplicating products...")
+        
+        # Add all products to dict keyed by ID (this automatically deduplicates)
+        for product in main_products:
+            product_id = str(product.get("id", ""))
+            if product_id:
+                all_products_dict[product_id] = product
+        
+        # Add collection products (deduplication happens automatically via dict)
+        for product in all_collection_products:
+            product_id = str(product.get("id", ""))
+            if product_id:
+                all_products_dict[product_id] = product
+        
+        # Convert dict back to list
+        all_products = list(all_products_dict.values())
+        
+        # Log final statistics
         elapsed_time = time.time() - start_time
         rate = len(all_products) / elapsed_time if elapsed_time > 0 else 0
-        self.logger.info(
-            f"Fetch completed: {len(all_products)} products in {elapsed_time:.2f} seconds "
-            f"({rate:.2f} products/sec)"
-        )
+        
+        self.logger.info("=" * 60)
+        self.logger.info("Comprehensive fetch completed!")
+        self.logger.info(f"Main endpoint products: {len(main_products)}")
+        self.logger.info(f"Collection products (before dedup): {len(all_collection_products)}")
+        duplicates_removed = len(main_products) + len(all_collection_products) - len(all_products)
+        if duplicates_removed > 0:
+            self.logger.info(f"Duplicates removed: {duplicates_removed}")
+        self.logger.info(f"Total unique products: {len(all_products)}")
+        self.logger.info(f"Time elapsed: {elapsed_time:.2f} seconds")
+        self.logger.info(f"Rate: {rate:.2f} products/sec")
+        self.logger.info("=" * 60)
         
         return all_products
     
@@ -200,6 +377,7 @@ class Scraper:
             "products_fetched": 0,
             "products_transformed": 0,
             "products_failed": 0,
+            "collections_fetched": 0,
             "errors": []
         }
         
@@ -304,6 +482,7 @@ class Scraper:
         self.logger.info("\n" + "=" * 60)
         self.logger.info("Scraping Statistics")
         self.logger.info("=" * 60)
+        self.logger.info(f"Collections fetched: {self.stats['collections_fetched']}")
         self.logger.info(f"Pages fetched: {self.stats['pages_fetched']}")
         self.logger.info(f"Products fetched: {self.stats['products_fetched']}")
         self.logger.info(f"Products transformed: {self.stats['products_transformed']}")

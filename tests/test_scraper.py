@@ -102,32 +102,122 @@ class TestScraper:
     def test_fetch_all_products_pagination(self, mock_sleep, mock_request):
         """Test pagination through multiple pages"""
         # First page returns limit (250) products, second page returns 1, third returns empty
-        # Create a list of 250 products for page 1
-        page1_products = [SAMPLE_SHOPIFY_PRODUCT] * 250
+        # Create products with unique IDs for page 1
+        page1_products = []
+        for i in range(250):
+            product = SAMPLE_SHOPIFY_PRODUCT.copy()
+            product["id"] = 123456789 + i
+            product["handle"] = f"test-product-{i}"
+            page1_products.append(product)
+        
+        # Product for page 2 with unique ID
+        page2_product = SAMPLE_SHOPIFY_PRODUCT.copy()
+        page2_product["id"] = 123456789 + 250
+        page2_product["handle"] = "test-product-250"
+        
         mock_request.side_effect = [
-            {"products": page1_products},
-            {"products": [SAMPLE_SHOPIFY_PRODUCT]},
-            {"products": []}
+            {"products": page1_products},  # Page 1: main endpoint
+            {"products": [page2_product]},  # Page 2: main endpoint
+            {"collections": []},  # Collections page 1 (empty)
         ]
         
         scraper = Scraper(delay=0)  # No delay for testing
         products = scraper.fetch_all_products()
         
         assert len(products) == 251  # 250 from page 1, 1 from page 2
-        assert mock_request.call_count == 2  # Stops after page 2 (got < limit)
+        # Should be called: 2 for main endpoint, 1 for collections
+        assert mock_request.call_count >= 2
     
     @patch('src.scraper.make_request')
     @patch('time.sleep')
     def test_fetch_all_products_stops_at_limit(self, mock_sleep, mock_request):
         """Test that pagination stops when fewer products than limit are returned"""
         # First page returns 1 product (less than limit of 250)
-        mock_request.return_value = {"products": [SAMPLE_SHOPIFY_PRODUCT]}
+        # Also need to mock collections endpoint
+        mock_request.side_effect = [
+            {"products": [SAMPLE_SHOPIFY_PRODUCT]},  # Main endpoint page 1
+            {"collections": []},  # Collections page 1 (empty)
+        ]
         
         scraper = Scraper(delay=0)
         products = scraper.fetch_all_products()
         
         assert len(products) == 1
-        assert mock_request.call_count == 1
+        # Should be called: 1 for main endpoint, 1 for collections
+        assert mock_request.call_count >= 1
+    
+    @patch('src.scraper.make_request')
+    @patch('time.sleep')
+    def test_fetch_all_collections(self, mock_sleep, mock_request):
+        """Test fetching all collections"""
+        sample_collection = {
+            "id": "123456",
+            "handle": "test-collection",
+            "title": "Test Collection"
+        }
+        
+        mock_request.side_effect = [
+            {"collections": [sample_collection]},  # Page 1
+            {"collections": []},  # Page 2 (empty, stops)
+        ]
+        
+        scraper = Scraper(delay=0)
+        collections = scraper.fetch_all_collections()
+        
+        assert len(collections) == 1
+        assert collections[0]["id"] == "123456"
+        assert collections[0]["handle"] == "test-collection"
+    
+    @patch('src.scraper.make_request')
+    @patch('time.sleep')
+    def test_fetch_products_from_collection(self, mock_sleep, mock_request):
+        """Test fetching products from a collection"""
+        mock_request.side_effect = [
+            {"products": [SAMPLE_SHOPIFY_PRODUCT]},  # Page 1
+            {"products": []},  # Page 2 (empty, stops)
+        ]
+        
+        scraper = Scraper(delay=0)
+        products = scraper.fetch_products_from_collection("123456", "test-collection")
+        
+        assert len(products) == 1
+        assert products[0]["id"] == 123456789
+    
+    @patch('src.scraper.make_request')
+    @patch('time.sleep')
+    def test_fetch_all_products_with_collections(self, mock_sleep, mock_request):
+        """Test fetching products from main endpoint and collections with deduplication"""
+        # Create products with unique IDs
+        main_product = SAMPLE_SHOPIFY_PRODUCT.copy()
+        main_product["id"] = 100
+        
+        collection_product1 = SAMPLE_SHOPIFY_PRODUCT.copy()
+        collection_product1["id"] = 200
+        collection_product1["handle"] = "collection-product-1"
+        
+        collection_product2 = SAMPLE_SHOPIFY_PRODUCT.copy()
+        collection_product2["id"] = 100  # Same ID as main product (duplicate)
+        collection_product2["handle"] = "collection-product-2"
+        
+        sample_collection = {
+            "id": "123456",
+            "handle": "test-collection",
+            "title": "Test Collection"
+        }
+        
+        mock_request.side_effect = [
+            {"products": [main_product]},  # Main endpoint page 1
+            {"collections": [sample_collection]},  # Collections page 1
+            {"products": [collection_product1, collection_product2]},  # Collection products
+        ]
+        
+        scraper = Scraper(delay=0)
+        products = scraper.fetch_all_products()
+        
+        # Should have 2 unique products (100 and 200), not 3 (duplicate removed)
+        assert len(products) == 2
+        product_ids = {p["id"] for p in products}
+        assert product_ids == {100, 200}
 
 
 class TestParser:

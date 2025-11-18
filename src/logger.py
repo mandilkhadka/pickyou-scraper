@@ -8,19 +8,29 @@ log levels.
 
 import logging
 import sys
+import getpass
 from typing import Optional
 
 
-# Default logger name
+# Default logger user
 DEFAULT_LOGGER_NAME = "pickyou_scraper"
 
 # Default log format
-LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOG_FORMAT = '%(asctime)s - %(user)s - %(levelname)s - %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
+class UserFormatter(logging.Formatter):
+    """Custom formatter that adds user information to log records."""
+    
+    def format(self, record):
+        # Add user to the log record
+        record.user = getpass.getuser()
+        return super().format(record)
+
+
 def setup_logger(
-    name: str = DEFAULT_LOGGER_NAME,
+    user: str = DEFAULT_LOGGER_NAME,
     level: int = logging.INFO,
     log_file: Optional[str] = None
 ) -> logging.Logger:
@@ -34,7 +44,7 @@ def setup_logger(
     - UTF-8 encoding for international characters
     
     Args:
-        name: Logger name (default: "pickyou_scraper")
+        user: Logger user (default: "pickyou_scraper")
         level: Logging level (default: logging.INFO)
                Use logging.DEBUG for verbose, logging.WARNING for quiet
         log_file: Optional file path for file logging (default: None)
@@ -53,15 +63,15 @@ def setup_logger(
         >>> logger.info("This will be logged to both console and file")
     """
     # Get or create logger
-    logger = logging.getLogger(name)
+    logger = logging.getLogger(user)
     logger.setLevel(level)
     
     # Remove existing handlers to avoid duplicates
     # This is important if setup_logger is called multiple times
     logger.handlers.clear()
     
-    # Create formatter for log messages
-    formatter = logging.Formatter(
+    # Create formatter for log messages with user support
+    formatter = UserFormatter(
         LOG_FORMAT,
         datefmt=LOG_DATE_FORMAT
     )

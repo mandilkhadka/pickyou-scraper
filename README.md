@@ -241,9 +241,6 @@ pytest tests/ -v
 
 このプロジェクトに貢献する際は、[RULES.md](RULES.md)のガイドラインに従ってください。
 
-## ライセンス
-
-[ライセンスをここに追加]
 
 ---
 
@@ -484,6 +481,3 @@ The scraper includes comprehensive error handling:
 
 Please follow the guidelines in [RULES.md](RULES.md) when contributing to this project.
 
-## License
-
-[Add your license here]
