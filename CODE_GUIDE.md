@@ -1,318 +1,6 @@
 # Code Guide / コードガイド
 
-[English](#english-guide) | [日本語](#japanese-guide)
-
----
-
-<a name="english-guide"></a>
-# English Guide
-
-## Understanding the Codebase
-
-This guide helps developers understand the codebase structure, design patterns, and how to work with the code.
-
-## Architecture Overview
-
-The scraper follows a modular architecture with clear separation of concerns:
-
-```
-┌─────────────────┐
-│   CLI Layer     │  ← User interface (cli.py)
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│ Pipeline Layer  │  ← Integration API (pipeline.py)
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│  Scraper Layer  │  ← Core logic (scraper.py)
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    │         │
-┌───▼───┐ ┌──▼────┐
-│Parser │ │Utils  │  ← Data transformation & utilities
-└───────┘ └───────┘
-```
-
-## Module Responsibilities
-
-### 1. `scraper.py` - Core Scraping Logic
-**Purpose**: Main orchestration of the scraping process
-
-**Key Components**:
-- `Scraper` class: Manages the entire scraping workflow
-- `fetch_page()`: Retrieves a single page from API
-- `fetch_all_products()`: Handles pagination automatically
-- `scrape_and_save()`: Complete workflow from fetch to save
-
-**Design Patterns**:
-- Single Responsibility: Each method has one clear purpose
-- Error Recovery: Continues processing even if individual products fail
-- Statistics Tracking: Monitors success/failure rates
-
-**Key Constants**:
-- `SHOPIFY_MAX_LIMIT = 250`: Maximum products per page
-- `PROGRESS_LOG_INTERVAL = 1000`: Log progress every N products
-
-### 2. `parser.py` - Data Transformation
-**Purpose**: Converts Shopify API format to custom JSON format
-
-**Key Functions**:
-- `parse_shopify_product()`: Main transformation function
-- `extract_brand_from_tags()`: Extracts brand from tags
-- `extract_category()`: Determines product category
-- `extract_gender()`: Classifies gender (womens/mens/unisex)
-
-**Design Patterns**:
-- Data Normalization: Handles inconsistent API responses (tags as string/list)
-- Fallback Values: Provides defaults when data is missing
-- Multi-language Support: Handles both English and Japanese keywords
-
-**Key Constants**:
-- `BRAND_KEYWORDS`: Keywords to identify brand tags
-- `CATEGORY_KEYWORDS`: Keywords to identify categories
-- `GENDER_WOMENS_KEYWORDS`: Keywords for women's products
-- `GENDER_MENS_KEYWORDS`: Keywords for men's products
-
-### 3. `utils.py` - Utility Functions
-**Purpose**: Reusable HTTP and file operations
-
-**Key Functions**:
-- `make_request()`: HTTP GET with retry logic
-- `save_json()`: Save data to JSON file
-- `ensure_data_dir()`: Create directories if needed
-
-**Design Patterns**:
-- Retry Pattern: Automatic retries for transient failures
-- Error Handling: Graceful degradation on failures
-- Logging Integration: Optional logger parameter
-
-**Key Constants**:
-- `DEFAULT_TIMEOUT = 30`: HTTP request timeout
-- `DEFAULT_MAX_RETRIES = 3`: Number of retry attempts
-- `RETRY_STATUS_CODES`: HTTP codes that trigger retry
-
-### 4. `validator.py` - Data Validation
-**Purpose**: Ensures data quality before saving
-
-**Key Function**:
-- `validate_product()`: Comprehensive product validation
-
-**Validation Steps**:
-1. Check all required fields exist
-2. Validate field types
-3. Validate field values (e.g., gender must be valid)
-4. Validate nested structures (sizes, brand)
-
-**Key Constants**:
-- `REQUIRED_FIELDS`: List of required product fields
-- `VALID_GENDERS`: Allowed gender values
-- `REQUIRED_SIZE_FIELDS`: Required fields in size objects
-
-### 5. `pipeline.py` - Integration API
-**Purpose**: Clean API for pipeline integration
-
-**Key Components**:
-- `PipelineScraper` class: Wrapper for easy integration
-- `scrape_products()`: Convenience function for simple use cases
-
-**Design Patterns**:
-- Facade Pattern: Simplifies complex scraper interface
-- Callback Pattern: Supports progress tracking
-- Metadata Pattern: Embeds scraping metadata in output
-
-### 6. `config.py` - Configuration Management
-**Purpose**: Centralized configuration handling
-
-**Key Features**:
-- Default values
-- File-based configuration
-- Runtime overrides
-- Dictionary-like interface
-
-**Design Patterns**:
-- Configuration Pattern: Centralized settings management
-- Priority System: File > Defaults, kwargs > File
-
-### 7. `logger.py` - Logging Setup
-**Purpose**: Centralized logging configuration
-
-**Key Features**:
-- Console and file logging
-- Configurable log levels
-- UTF-8 encoding support
-- Formatted output with timestamps
-
-### 8. `cli.py` - Command Line Interface
-**Purpose**: User-friendly terminal interface
-
-**Key Features**:
-- Argument parsing
-- Config file support
-- Verbose/quiet modes
-- Help documentation
-
-## Code Flow
-
-### Typical Scraping Flow
-
-```
-1. User runs: python -m src.cli
-   ↓
-2. CLI parses arguments and creates Scraper instance
-   ↓
-3. Scraper.scrape_and_save() is called
-   ↓
-4. fetch_all_products() paginates through API
-   ↓
-5. For each product: parse_shopify_product() transforms data
-   ↓
-6. validate_product() ensures data quality
-   ↓
-7. save_json() writes to file
-   ↓
-8. Statistics are logged
-```
-
-### Error Handling Flow
-
-```
-API Request Fails
-  ↓
-make_request() catches exception
-  ↓
-Logs error and returns None
-  ↓
-fetch_page() receives None
-  ↓
-Returns empty list
-  ↓
-fetch_all_products() detects empty list
-  ↓
-Stops pagination gracefully
-```
-
-## Best Practices
-
-### 1. Adding New Features
-
-1. **Add constants at module level**
-   ```python
-   # At top of file
-   NEW_FEATURE_DEFAULT = "value"
-   ```
-
-2. **Document with docstrings**
-   ```python
-   def new_function(param: str) -> bool:
-       """
-       Brief description.
-       
-       Args:
-           param: Description
-           
-       Returns:
-           Description
-       """
-   ```
-
-3. **Add inline comments for complex logic**
-   ```python
-   # Complex calculation explained here
-   result = complex_calculation()
-   ```
-
-### 2. Error Handling
-
-Always use try-except blocks:
-```python
-try:
-    result = risky_operation()
-except SpecificException as e:
-    logger.error(f"Error message: {e}")
-    return None  # or appropriate default
-```
-
-### 3. Type Hints
-
-Always include type hints:
-```python
-def function(param: str, count: int) -> Dict[str, Any]:
-    ...
-```
-
-### 4. Logging
-
-Use appropriate log levels:
-- `logger.debug()`: Detailed debugging info
-- `logger.info()`: General information
-- `logger.warning()`: Warnings (non-critical)
-- `logger.error()`: Errors that need attention
-
-## Testing
-
-### Running Tests
-
-```bash
-# All tests
-pytest tests/
-
-# Specific test file
-pytest tests/test_scraper.py
-
-# With coverage
-pytest tests/ --cov=src
-```
-
-### Writing Tests
-
-Follow this pattern:
-```python
-def test_function_name():
-    """Test description."""
-    # Arrange
-    input_data = create_test_data()
-    
-    # Act
-    result = function_under_test(input_data)
-    
-    # Assert
-    assert result == expected_output
-```
-
-## Common Tasks
-
-### Adding a New Field to Output
-
-1. Update `parser.py`:
-   ```python
-   return {
-       ...
-       "new_field": extract_new_field(product),
-   }
-   ```
-
-2. Update `validator.py`:
-   ```python
-   REQUIRED_FIELDS.append("new_field")
-   # Add validation logic
-   ```
-
-3. Update tests in `tests/test_scraper.py`
-
-### Changing API Endpoint
-
-Update in `scraper.py`:
-```python
-self.api_endpoint = f"{base_url}/new-endpoint.json"
-```
-
-### Adding New Configuration Option
-
-1. Add to `config.py` DEFAULT_CONFIG
-2. Add CLI argument in `cli.py`
-3. Use in `scraper.py` via config object
+[日本語](#japanese-guide) | [English](#english-guide)
 
 ---
 
@@ -626,3 +314,314 @@ self.api_endpoint = f"{base_url}/new-endpoint.json"
 2. `cli.py`にCLI引数を追加
 3. `scraper.py`でconfigオブジェクト経由で使用
 
+---
+
+<a name="english-guide"></a>
+# English Guide
+
+## Understanding the Codebase
+
+This guide helps developers understand the codebase structure, design patterns, and how to work with the code.
+
+## Architecture Overview
+
+The scraper follows a modular architecture with clear separation of concerns:
+
+```
+┌─────────────────┐
+│   CLI Layer     │  ← User interface (cli.py)
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│ Pipeline Layer  │  ← Integration API (pipeline.py)
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│  Scraper Layer  │  ← Core logic (scraper.py)
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    │         │
+┌───▼───┐ ┌──▼────┐
+│Parser │ │Utils  │  ← Data transformation & utilities
+└───────┘ └───────┘
+```
+
+## Module Responsibilities
+
+### 1. `scraper.py` - Core Scraping Logic
+**Purpose**: Main orchestration of the scraping process
+
+**Key Components**:
+- `Scraper` class: Manages the entire scraping workflow
+- `fetch_page()`: Retrieves a single page from API
+- `fetch_all_products()`: Handles pagination automatically
+- `scrape_and_save()`: Complete workflow from fetch to save
+
+**Design Patterns**:
+- Single Responsibility: Each method has one clear purpose
+- Error Recovery: Continues processing even if individual products fail
+- Statistics Tracking: Monitors success/failure rates
+
+**Key Constants**:
+- `SHOPIFY_MAX_LIMIT = 250`: Maximum products per page
+- `PROGRESS_LOG_INTERVAL = 1000`: Log progress every N products
+
+### 2. `parser.py` - Data Transformation
+**Purpose**: Converts Shopify API format to custom JSON format
+
+**Key Functions**:
+- `parse_shopify_product()`: Main transformation function
+- `extract_brand_from_tags()`: Extracts brand from tags
+- `extract_category()`: Determines product category
+- `extract_gender()`: Classifies gender (womens/mens/unisex)
+
+**Design Patterns**:
+- Data Normalization: Handles inconsistent API responses (tags as string/list)
+- Fallback Values: Provides defaults when data is missing
+- Multi-language Support: Handles both English and Japanese keywords
+
+**Key Constants**:
+- `BRAND_KEYWORDS`: Keywords to identify brand tags
+- `CATEGORY_KEYWORDS`: Keywords to identify categories
+- `GENDER_WOMENS_KEYWORDS`: Keywords for women's products
+- `GENDER_MENS_KEYWORDS`: Keywords for men's products
+
+### 3. `utils.py` - Utility Functions
+**Purpose**: Reusable HTTP and file operations
+
+**Key Functions**:
+- `make_request()`: HTTP GET with retry logic
+- `save_json()`: Save data to JSON file
+- `ensure_data_dir()`: Create directories if needed
+
+**Design Patterns**:
+- Retry Pattern: Automatic retries for transient failures
+- Error Handling: Graceful degradation on failures
+- Logging Integration: Optional logger parameter
+
+**Key Constants**:
+- `DEFAULT_TIMEOUT = 30`: HTTP request timeout
+- `DEFAULT_MAX_RETRIES = 3`: Number of retry attempts
+- `RETRY_STATUS_CODES`: HTTP codes that trigger retry
+
+### 4. `validator.py` - Data Validation
+**Purpose**: Ensures data quality before saving
+
+**Key Function**:
+- `validate_product()`: Comprehensive product validation
+
+**Validation Steps**:
+1. Check all required fields exist
+2. Validate field types
+3. Validate field values (e.g., gender must be valid)
+4. Validate nested structures (sizes, brand)
+
+**Key Constants**:
+- `REQUIRED_FIELDS`: List of required product fields
+- `VALID_GENDERS`: Allowed gender values
+- `REQUIRED_SIZE_FIELDS`: Required fields in size objects
+
+### 5. `pipeline.py` - Integration API
+**Purpose**: Clean API for pipeline integration
+
+**Key Components**:
+- `PipelineScraper` class: Wrapper for easy integration
+- `scrape_products()`: Convenience function for simple use cases
+
+**Design Patterns**:
+- Facade Pattern: Simplifies complex scraper interface
+- Callback Pattern: Supports progress tracking
+- Metadata Pattern: Embeds scraping metadata in output
+
+### 6. `config.py` - Configuration Management
+**Purpose**: Centralized configuration handling
+
+**Key Features**:
+- Default values
+- File-based configuration
+- Runtime overrides
+- Dictionary-like interface
+
+**Design Patterns**:
+- Configuration Pattern: Centralized settings management
+- Priority System: File > Defaults, kwargs > File
+
+### 7. `logger.py` - Logging Setup
+**Purpose**: Centralized logging configuration
+
+**Key Features**:
+- Console and file logging
+- Configurable log levels
+- UTF-8 encoding support
+- Formatted output with timestamps
+
+### 8. `cli.py` - Command Line Interface
+**Purpose**: User-friendly terminal interface
+
+**Key Features**:
+- Argument parsing
+- Config file support
+- Verbose/quiet modes
+- Help documentation
+
+## Code Flow
+
+### Typical Scraping Flow
+
+```
+1. User runs: python -m src.cli
+   ↓
+2. CLI parses arguments and creates Scraper instance
+   ↓
+3. Scraper.scrape_and_save() is called
+   ↓
+4. fetch_all_products() paginates through API
+   ↓
+5. For each product: parse_shopify_product() transforms data
+   ↓
+6. validate_product() ensures data quality
+   ↓
+7. save_json() writes to file
+   ↓
+8. Statistics are logged
+```
+
+### Error Handling Flow
+
+```
+API Request Fails
+  ↓
+make_request() catches exception
+  ↓
+Logs error and returns None
+  ↓
+fetch_page() receives None
+  ↓
+Returns empty list
+  ↓
+fetch_all_products() detects empty list
+  ↓
+Stops pagination gracefully
+```
+
+## Best Practices
+
+### 1. Adding New Features
+
+1. **Add constants at module level**
+   ```python
+   # At top of file
+   NEW_FEATURE_DEFAULT = "value"
+   ```
+
+2. **Document with docstrings**
+   ```python
+   def new_function(param: str) -> bool:
+       """
+       Brief description.
+       
+       Args:
+           param: Description
+           
+       Returns:
+           Description
+       """
+   ```
+
+3. **Add inline comments for complex logic**
+   ```python
+   # Complex calculation explained here
+   result = complex_calculation()
+   ```
+
+### 2. Error Handling
+
+Always use try-except blocks:
+```python
+try:
+    result = risky_operation()
+except SpecificException as e:
+    logger.error(f"Error message: {e}")
+    return None  # or appropriate default
+```
+
+### 3. Type Hints
+
+Always include type hints:
+```python
+def function(param: str, count: int) -> Dict[str, Any]:
+    ...
+```
+
+### 4. Logging
+
+Use appropriate log levels:
+- `logger.debug()`: Detailed debugging info
+- `logger.info()`: General information
+- `logger.warning()`: Warnings (non-critical)
+- `logger.error()`: Errors that need attention
+
+## Testing
+
+### Running Tests
+
+```bash
+# All tests
+pytest tests/
+
+# Specific test file
+pytest tests/test_scraper.py
+
+# With coverage
+pytest tests/ --cov=src
+```
+
+### Writing Tests
+
+Follow this pattern:
+```python
+def test_function_name():
+    """Test description."""
+    # Arrange
+    input_data = create_test_data()
+    
+    # Act
+    result = function_under_test(input_data)
+    
+    # Assert
+    assert result == expected_output
+```
+
+## Common Tasks
+
+### Adding a New Field to Output
+
+1. Update `parser.py`:
+   ```python
+   return {
+       ...
+       "new_field": extract_new_field(product),
+   }
+   ```
+
+2. Update `validator.py`:
+   ```python
+   REQUIRED_FIELDS.append("new_field")
+   # Add validation logic
+   ```
+
+3. Update tests in `tests/test_scraper.py`
+
+### Changing API Endpoint
+
+Update in `scraper.py`:
+```python
+self.api_endpoint = f"{base_url}/new-endpoint.json"
+```
+
+### Adding New Configuration Option
+
+1. Add to `config.py` DEFAULT_CONFIG
+2. Add CLI argument in `cli.py`
+3. Use in `scraper.py` via config object

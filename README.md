@@ -1,249 +1,6 @@
 # PickYou Scraper / PickYou スクレイパー
 
-[English](#english) | [日本語](#japanese)
-
----
-
-<a name="english"></a>
-# English
-
-## Overview
-
-A production-ready Python scraper for fetching all products from pickyou.co.jp using the Shopify API. This scraper is designed for easy integration into extraction pipelines with comprehensive error handling, logging, and data validation.
-
-## Features
-
-- ✅ Fetches all products from pickyou.co.jp via Shopify API
-- ✅ Automatic pagination (handles all pages automatically)
-- ✅ Transforms Shopify product format to custom JSON format
-- ✅ Rate limiting and error handling
-- ✅ Retry logic for failed requests
-- ✅ Comprehensive unit tests
-- ✅ **Pipeline-ready API** for easy integration
-- ✅ **CLI interface** with flexible options
-- ✅ **Configuration file support** (JSON)
-- ✅ **Metadata tracking** in output
-- ✅ **Progress callbacks** for monitoring
-- ✅ **Professional logging** system
-- ✅ **Data validation** before saving
-
-## Quick Start
-
-**Just want to run it?** See [QUICK_START.md](QUICK_START.md) for simple step-by-step instructions!
-
-```bash
-cd /Users/m/code/mandilkhadka/pickyou-scraper
-source venv/bin/activate
-python -m src.cli
-```
-
-## Project Structure
-
-```
-pickyou-scraper/
-├── src/
-│   ├── scraper.py      # Main scraper with pagination logic
-│   ├── parser.py       # Transform Shopify format to custom format
-│   ├── utils.py        # HTTP requests and file I/O helpers
-│   ├── pipeline.py     # Pipeline integration module
-│   ├── cli.py          # Command-line interface
-│   ├── config.py       # Configuration management
-│   ├── logger.py       # Logging setup
-│   ├── validator.py    # Data validation
-│   └── __init__.py
-├── tests/
-│   ├── test_scraper.py # Unit tests
-│   └── __init__.py
-├── examples/
-│   └── pipeline_integration.py  # Integration examples
-├── data/
-│   └── pickyou_products.json    # Output file (generated)
-├── requirements.txt
-├── config.example.json
-├── RULES.md
-├── QUICK_START.md
-├── PIPELINE_INTEGRATION.md
-└── README.md
-```
-
-## Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/mandilkhadka/pickyou-scraper.git
-cd pickyou-scraper
-```
-
-2. Create a virtual environment (recommended):
-```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-## Usage
-
-### Command Line Interface (Recommended)
-
-**Basic usage:**
-```bash
-python -m src.cli
-```
-
-**With options:**
-```bash
-python -m src.cli --output data/products.json --delay 2.0 --verbose
-```
-
-**With config file:**
-```bash
-python -m src.cli --config config.json
-```
-
-**See all options:**
-```bash
-python -m src.cli --help
-```
-
-### Python API (For Pipeline Integration)
-
-**Simple integration:**
-```python
-from src.pipeline import scrape_products
-
-result = scrape_products(output_file="data/products.json")
-```
-
-**Advanced integration:**
-```python
-from src.pipeline import PipelineScraper
-from src.config import Config
-
-config = Config()
-pipeline = PipelineScraper(config=config)
-result = pipeline.scrape_with_metadata()
-```
-
-See [PIPELINE_INTEGRATION.md](PIPELINE_INTEGRATION.md) for complete integration guide.
-
-## Output Format
-
-The scraper outputs JSON in the following format:
-
-```json
-{
-  "items": [
-    {
-      "platform": "pickyou",
-      "id": "123456789",
-      "name": "Product Name",
-      "price": 2999,
-      "sizes": [
-        {
-          "id": "S",
-          "row": "S",
-          "size": "S"
-        }
-      ],
-      "brand": {
-        "id": null,
-        "name": "Brand Name",
-        "sub_name": null
-      },
-      "category": "tops",
-      "gender": "womens",
-      "s3_image_url": "https://...",
-      "platform_url": "https://pickyou.co.jp/products/product-handle",
-      "image_count": 3,
-      "item_images": [
-        "https://...",
-        "https://..."
-      ]
-    }
-  ]
-}
-```
-
-## Code Documentation
-
-### Module Overview
-
-- **`scraper.py`**: Core scraping logic with pagination and error handling
-- **`parser.py`**: Transforms Shopify API format to custom JSON format
-- **`utils.py`**: HTTP request utilities with retry logic
-- **`pipeline.py`**: Pipeline integration API for programmatic use
-- **`cli.py`**: Command-line interface
-- **`config.py`**: Configuration management system
-- **`logger.py`**: Logging setup and configuration
-- **`validator.py`**: Data validation before saving
-
-### Key Functions
-
-#### Scraper Class
-- `fetch_page(page)`: Fetches a single page of products
-- `fetch_all_products()`: Automatically paginates through all pages
-- `scrape_and_save(output_file)`: Complete scraping workflow
-
-#### Parser Functions
-- `parse_shopify_product(product, base_url)`: Transforms Shopify product to custom format
-- `extract_brand_from_tags(tags)`: Extracts brand from product tags
-- `extract_category(product_type, tags)`: Extracts category
-- `extract_gender(tags)`: Extracts gender classification
-
-#### Utility Functions
-- `make_request(url, ...)`: HTTP GET with retry logic
-- `save_json(data, filepath, ...)`: Save data to JSON file
-- `ensure_data_dir(dir)`: Create directory if needed
-
-## Testing
-
-Run tests with pytest:
-
-```bash
-pytest tests/
-```
-
-Run with verbose output:
-
-```bash
-pytest tests/ -v
-```
-
-## Configuration
-
-Create a `config.json` file:
-
-```json
-{
-  "base_url": "https://pickyou.co.jp",
-  "limit": 250,
-  "delay": 1.0,
-  "output_file": "data/pickyou_products.json",
-  "max_retries": 3,
-  "timeout": 30,
-  "log_level": "INFO"
-}
-```
-
-## Error Handling
-
-The scraper includes comprehensive error handling:
-- Automatic retries for transient failures
-- Graceful handling of individual product errors
-- Detailed error logging
-- Statistics tracking for failed products
-
-## Contributing
-
-Please follow the guidelines in [RULES.md](RULES.md) when contributing to this project.
-
-## License
-
-[Add your license here]
+[日本語](#japanese) | [English](#english)
 
 ---
 
@@ -487,3 +244,246 @@ pytest tests/ -v
 ## ライセンス
 
 [ライセンスをここに追加]
+
+---
+
+<a name="english"></a>
+# English
+
+## Overview
+
+A production-ready Python scraper for fetching all products from pickyou.co.jp using the Shopify API. This scraper is designed for easy integration into extraction pipelines with comprehensive error handling, logging, and data validation.
+
+## Features
+
+- ✅ Fetches all products from pickyou.co.jp via Shopify API
+- ✅ Automatic pagination (handles all pages automatically)
+- ✅ Transforms Shopify product format to custom JSON format
+- ✅ Rate limiting and error handling
+- ✅ Retry logic for failed requests
+- ✅ Comprehensive unit tests
+- ✅ **Pipeline-ready API** for easy integration
+- ✅ **CLI interface** with flexible options
+- ✅ **Configuration file support** (JSON)
+- ✅ **Metadata tracking** in output
+- ✅ **Progress callbacks** for monitoring
+- ✅ **Professional logging** system
+- ✅ **Data validation** before saving
+
+## Quick Start
+
+**Just want to run it?** See [QUICK_START.md](QUICK_START.md) for simple step-by-step instructions!
+
+```bash
+cd /Users/m/code/mandilkhadka/pickyou-scraper
+source venv/bin/activate
+python -m src.cli
+```
+
+## Project Structure
+
+```
+pickyou-scraper/
+├── src/
+│   ├── scraper.py      # Main scraper with pagination logic
+│   ├── parser.py       # Transform Shopify format to custom format
+│   ├── utils.py        # HTTP requests and file I/O helpers
+│   ├── pipeline.py     # Pipeline integration module
+│   ├── cli.py          # Command-line interface
+│   ├── config.py       # Configuration management
+│   ├── logger.py       # Logging setup
+│   ├── validator.py    # Data validation
+│   └── __init__.py
+├── tests/
+│   ├── test_scraper.py # Unit tests
+│   └── __init__.py
+├── examples/
+│   └── pipeline_integration.py  # Integration examples
+├── data/
+│   └── pickyou_products.json    # Output file (generated)
+├── requirements.txt
+├── config.example.json
+├── RULES.md
+├── QUICK_START.md
+├── PIPELINE_INTEGRATION.md
+└── README.md
+```
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/mandilkhadka/pickyou-scraper.git
+cd pickyou-scraper
+```
+
+2. Create a virtual environment (recommended):
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+## Usage
+
+### Command Line Interface (Recommended)
+
+**Basic usage:**
+```bash
+python -m src.cli
+```
+
+**With options:**
+```bash
+python -m src.cli --output data/products.json --delay 2.0 --verbose
+```
+
+**With config file:**
+```bash
+python -m src.cli --config config.json
+```
+
+**See all options:**
+```bash
+python -m src.cli --help
+```
+
+### Python API (For Pipeline Integration)
+
+**Simple integration:**
+```python
+from src.pipeline import scrape_products
+
+result = scrape_products(output_file="data/products.json")
+```
+
+**Advanced integration:**
+```python
+from src.pipeline import PipelineScraper
+from src.config import Config
+
+config = Config()
+pipeline = PipelineScraper(config=config)
+result = pipeline.scrape_with_metadata()
+```
+
+See [PIPELINE_INTEGRATION.md](PIPELINE_INTEGRATION.md) for complete integration guide.
+
+## Output Format
+
+The scraper outputs JSON in the following format:
+
+```json
+{
+  "items": [
+    {
+      "platform": "pickyou",
+      "id": "123456789",
+      "name": "Product Name",
+      "price": 2999,
+      "sizes": [
+        {
+          "id": "S",
+          "row": "S",
+          "size": "S"
+        }
+      ],
+      "brand": {
+        "id": null,
+        "name": "Brand Name",
+        "sub_name": null
+      },
+      "category": "tops",
+      "gender": "womens",
+      "s3_image_url": "https://...",
+      "platform_url": "https://pickyou.co.jp/products/product-handle",
+      "image_count": 3,
+      "item_images": [
+        "https://...",
+        "https://..."
+      ]
+    }
+  ]
+}
+```
+
+## Code Documentation
+
+### Module Overview
+
+- **`scraper.py`**: Core scraping logic with pagination and error handling
+- **`parser.py`**: Transforms Shopify API format to custom JSON format
+- **`utils.py`**: HTTP request utilities with retry logic
+- **`pipeline.py`**: Pipeline integration API for programmatic use
+- **`cli.py`**: Command-line interface
+- **`config.py`**: Configuration management system
+- **`logger.py`**: Logging setup and configuration
+- **`validator.py`**: Data validation before saving
+
+### Key Functions
+
+#### Scraper Class
+- `fetch_page(page)`: Fetches a single page of products
+- `fetch_all_products()`: Automatically paginates through all pages
+- `scrape_and_save(output_file)`: Complete scraping workflow
+
+#### Parser Functions
+- `parse_shopify_product(product, base_url)`: Transforms Shopify product to custom format
+- `extract_brand_from_tags(tags)`: Extracts brand from product tags
+- `extract_category(product_type, tags)`: Extracts category
+- `extract_gender(tags)`: Extracts gender classification
+
+#### Utility Functions
+- `make_request(url, ...)`: HTTP GET with retry logic
+- `save_json(data, filepath, ...)`: Save data to JSON file
+- `ensure_data_dir(dir)`: Create directory if needed
+
+## Testing
+
+Run tests with pytest:
+
+```bash
+pytest tests/
+```
+
+Run with verbose output:
+
+```bash
+pytest tests/ -v
+```
+
+## Configuration
+
+Create a `config.json` file:
+
+```json
+{
+  "base_url": "https://pickyou.co.jp",
+  "limit": 250,
+  "delay": 1.0,
+  "output_file": "data/pickyou_products.json",
+  "max_retries": 3,
+  "timeout": 30,
+  "log_level": "INFO"
+}
+```
+
+## Error Handling
+
+The scraper includes comprehensive error handling:
+- Automatic retries for transient failures
+- Graceful handling of individual product errors
+- Detailed error logging
+- Statistics tracking for failed products
+
+## Contributing
+
+Please follow the guidelines in [RULES.md](RULES.md) when contributing to this project.
+
+## License
+
+[Add your license here]
