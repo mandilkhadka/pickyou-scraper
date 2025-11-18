@@ -1,0 +1,14 @@
+{
+  "base_url": "https://pickyou.co.jp",
+  "limit": 250,
+  "delay": 1.0,
+  "output_file": "data/pickyou_products.json",
+  "max_retries": 3,
+  "timeout": 30,
+  "batch_size": 1000,
+  "save_checkpoints": true,
+  "checkpoint_dir": "data/checkpoints",
+  "include_metadata": true,
+  "log_level": "INFO"
+}
+

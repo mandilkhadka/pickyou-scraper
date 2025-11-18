@@ -2,14 +2,31 @@
 
 A Python scraper for fetching all products from pickyou.co.jp using the Shopify API.
 
+## 🚀 Quick Start
+
+**Just want to run it?** See [QUICK_START.md](QUICK_START.md) for simple step-by-step instructions!
+
+```bash
+cd /Users/m/code/mandilkhadka/pickyou-scraper
+source venv/bin/activate
+python -m src.cli
+```
+
 ## Features
 
-- Fetches all products from pickyou.co.jp via Shopify API
-- Automatic pagination (handles all pages automatically)
-- Transforms Shopify product format to custom JSON format
-- Rate limiting and error handling
-- Retry logic for failed requests
-- Comprehensive unit tests
+- ✅ Fetches all products from pickyou.co.jp via Shopify API
+- ✅ Automatic pagination (handles all pages automatically)
+- ✅ Transforms Shopify product format to custom JSON format
+- ✅ Rate limiting and error handling
+- ✅ Retry logic for failed requests
+- ✅ Comprehensive unit tests
+- ✅ **Pipeline-ready API** for easy integration
+- ✅ **CLI interface** with flexible options
+- ✅ **Configuration file support** (JSON)
+- ✅ **Metadata tracking** in output
+- ✅ **Progress callbacks** for monitoring
+- ✅ **Professional logging** system
+- ✅ **Data validation** before saving
 
 ## Project Structure
 
@@ -51,16 +68,54 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Basic Usage
+### Command Line Interface (Recommended)
 
-Run the scraper:
+**Basic usage:**
 ```bash
-python -m src.scraper
+python -m src.cli
 ```
 
-Or:
+**With options:**
 ```bash
-python src/scraper.py
+python -m src.cli --output data/products.json --delay 2.0 --verbose
+```
+
+**With config file:**
+```bash
+python -m src.cli --config config.json
+```
+
+**See all options:**
+```bash
+python -m src.cli --help
+```
+
+### Python API (For Pipeline Integration)
+
+**Simple integration:**
+```python
+from src.pipeline import scrape_products
+
+result = scrape_products(output_file="data/products.json")
+```
+
+**Advanced integration:**
+```python
+from src.pipeline import PipelineScraper
+from src.config import Config
+
+config = Config()
+pipeline = PipelineScraper(config=config)
+result = pipeline.scrape_with_metadata()
+```
+
+See [PIPELINE_INTEGRATION.md](PIPELINE_INTEGRATION.md) for complete integration guide.
+
+### Legacy Usage
+
+Run the scraper directly:
+```bash
+python -m src.scraper
 ```
 
 The scraper will:
@@ -168,8 +223,4 @@ The scraper includes:
 - Image URLs are original Shopify URLs (not S3) - S3 upload will be handled in a later pipeline
 - Brand, category, and gender are extracted from product tags and product_type fields
 - If fields cannot be extracted, sensible defaults are used
-
-## License
-
-[Add your license here]
 

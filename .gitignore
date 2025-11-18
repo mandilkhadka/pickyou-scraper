@@ -46,6 +46,8 @@ data/*
 
 # Logs
 *.log
+logs/
+*.log.*
 
 # Environment variables
 .env
